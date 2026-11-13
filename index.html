@@ -6,9 +6,14 @@
 <title>Word Bend – a daily 5-letter word game</title>
 <meta name="description" content="Guess the hidden 5-letter word in 6 tries. A new puzzle every day.">
 <meta name="theme-color" content="#121213">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=2">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Word Bend">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark">
@@ -102,6 +107,17 @@
   </div>
 </div>
 
+<!-- Reminders pop-up (home-screen launch) -->
+<div class="overlay" id="modal-rem" data-required="1" hidden>
+  <div class="modal rem-modal" role="dialog" aria-labelledby="rem-h">
+    <div class="rem-bell">🔔</div>
+    <h2 id="rem-h" class="modal-h-big">Turn on reminders?</h2>
+    <p class="sub-sm">We’ll give you a nudge at 6pm if you haven’t played yet, and let you know when it’s your turn to pick the starting word.</p>
+    <button class="btn-primary" id="rem-allow">Allow reminders</button>
+    <button class="btn-link" id="rem-later">Not now</button>
+  </div>
+</div>
+
 <!-- Help modal -->
 <div class="overlay" id="modal-help" hidden>
   <div class="modal" role="dialog" aria-labelledby="help-h">
@@ -139,6 +155,7 @@
     <h2>Guess Distribution</h2>
     <div id="dist"></div>
     <div id="rot-box" class="rot-box" hidden></div>
+    <div id="rem-box" class="rem-box" hidden></div>
     <div id="stats-footer" hidden>
       <div class="countdown"><h2>Next Puzzle</h2><div id="timer">00:00:00</div></div>
       <div class="divider"></div>

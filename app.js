@@ -151,7 +151,7 @@ function renderStats(){
     const hl=state.status==='won'&&state.guesses.length===i+1;
     row.innerHTML=`<div class="g">${i+1}</div><div class="barw"><div class="bar${hl?' hl':''}" style="width:${Math.max(7,Math.round(n/max*100))}%">${n}</div></div>`;d.appendChild(row);});
   $('#stats-footer').hidden=state.status==='playing';
-  renderRot();
+  renderRot();renderRem();
 }
 function tick(){const now=new Date(),next=new Date(today.getFullYear(),today.getMonth(),today.getDate()+1);
   let s=Math.max(0,Math.floor((next-now)/1000));if(qs.get('date'))s=Math.max(0,Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)-now)/1000));
@@ -215,7 +215,7 @@ $('#user-form').addEventListener('submit',async e=>{e.preventDefault();
   btn.disabled=false;btn.textContent=label;
   const first=!username;username=v;save('username',v);save('userSynced',synced);renderUser();closeModals();
   if(synced)submitResult();
-  if(synced)save('nameTaken',false);
+  if(synced){save('nameTaken',false);syncPush();}
   if(first)afterUserSaved(true);
   else{afterUserSaved(false);afterUserSaved=f=>{if(f)openCalendar();};toast(synced?'Username saved':'Saved on this phone (offline)',1400);}});
 $('#user-input').addEventListener('input',()=>{$('#user-input').classList.remove('bad');$('#user-err').textContent='';});
@@ -269,6 +269,34 @@ async function nominate(e){e.preventDefault();const w=$('#rot-input').value.trim
   $('#rot-save')&&($('#rot-save').disabled=false);
   if(rot)await loadRot();}
 
+// ---------- reminders (web push) ----------
+const VAPID_PUBLIC='BPx4GvtA-q0r3_TNMaS2ht_amc_r5IQB6vafzHsVrImgYbeET2dOuZFu2zcsGeydA2KM8eyreOw6KCeErTGWFoU';
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isStandalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const pushSupported='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+let swReg=null;
+const dayKey=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
+function keyBytes(s){const b=atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));}
+async function getSub(){const reg=swReg||await navigator.serviceWorker.ready;
+  return (await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(VAPID_PUBLIC)});}
+async function saveSub(sub){if(!username||!load('userSynced',false))return;const j=sub.toJSON();
+  try{const r=await rpc('save_push_subscription',{p_device:deviceId,p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});if(r==='ok')save('pushSaved',j.endpoint);}catch(e){}}
+async function syncPush(){if(!pushSupported||Notification.permission!=='granted')return;try{const s=await getSub();if(load('pushSaved',null)!==s.endpoint)await saveSub(s);}catch(e){}renderRem();}
+async function enablePush(){if(!pushSupported)return 'unsupported';
+  const p=await Notification.requestPermission();if(p!=='granted'){renderRem();return p;}
+  try{await saveSub(await getSub());}catch(e){}renderRem();return 'granted';}
+function renderRem(){const box=$('#rem-box');if(!box)return;
+  if(state.status==='playing'){box.hidden=true;return;}
+  if(isIOS&&!isStandalone){box.innerHTML='🔔 Want daily reminders? Tap <b>Share</b> then <b>Add to Home Screen</b>, open Word Bend from your Home Screen and turn them on there.';box.hidden=false;return;}
+  if(!pushSupported||Notification.permission==='denied'){box.hidden=true;return;}
+  if(Notification.permission==='granted'&&load('pushSaved',null)){box.innerHTML='🔔 Reminders are on';box.hidden=false;return;}
+  box.innerHTML='<button class="btn-small" id="rem-btn">🔔 Turn on reminders</button>';box.hidden=false;
+  $('#rem-btn').onclick=async()=>{const r=await enablePush();toast(r==='granted'?'Reminders on! See you at 6pm 😉':'Reminders not turned on',2000);};}
+$('#rem-allow').onclick=async()=>{$('#modal-rem').hidden=true;const r=await enablePush();if(r==='granted')toast('Reminders on! See you at 6pm 😉',2000);};
+$('#rem-later').onclick=()=>{save('remDismissed',dayKey());$('#modal-rem').hidden=true;};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js',{scope:'./'}).then(r=>{swReg=r;syncPush();}).catch(()=>{});
+if(isStandalone&&pushSupported&&Notification.permission==='default'&&load('remDismissed',null)!==dayKey())$('#modal-rem').hidden=false;
+
 // ---------- result submission ----------
 async function submitResult(){
   if(!state.pendingSubmit||!username||!load('userSynced',false))return;
@@ -280,7 +308,7 @@ async function submitResult(){
 async function syncUser(){
   if(!username||load('userSynced',false))return submitResult();
   try{const r=await rpc('claim_username',{p_device:deviceId,p_name:username});
-    if(r==='ok'){save('userSynced',true);save('nameTaken',false);submitResult();}
+    if(r==='ok'){save('userSynced',true);save('nameTaken',false);submitResult();syncPush();}
     else if(r==='taken')save('nameTaken',true);
   }catch(e){}
 }
