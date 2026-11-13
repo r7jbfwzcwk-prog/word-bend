@@ -94,6 +94,7 @@ function shake(){const el=rows[rowIdx()].el;el.classList.remove('shake');void el
 
 function press(k){
   if(busy||state.status!=='playing'||anyModalOpen())return;
+  if(startPending())return toast('Loading today’s starting word…',1200);
   if(k==='enter')return submit();
   if(k==='back'){current=current.slice(0,-1);return renderCurrent();}
   if(/^[a-z]$/.test(k)&&current.length<5){current+=k;renderCurrent();}
@@ -150,6 +151,7 @@ function renderStats(){
     const hl=state.status==='won'&&state.guesses.length===i+1;
     row.innerHTML=`<div class="g">${i+1}</div><div class="barw"><div class="bar${hl?' hl':''}" style="width:${Math.max(7,Math.round(n/max*100))}%">${n}</div></div>`;d.appendChild(row);});
   $('#stats-footer').hidden=state.status==='playing';
+  renderRot();
 }
 function tick(){const now=new Date(),next=new Date(today.getFullYear(),today.getMonth(),today.getDate()+1);
   let s=Math.max(0,Math.floor((next-now)/1000));if(qs.get('date'))s=Math.max(0,Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)-now)/1000));
@@ -219,11 +221,59 @@ $('#user-form').addEventListener('submit',async e=>{e.preventDefault();
 $('#user-input').addEventListener('input',()=>{$('#user-input').classList.remove('bad');$('#user-err').textContent='';});
 $('#btn-change-user').onclick=()=>openUser(true);
 
+// ---------- starting word rotation ----------
+let rot=null,rotTried=false;
+const answerFor=n=>ANSWERS[((n-1)%ANSWERS.length+ANSWERS.length)%ANSWERS.length];
+function seeded(n){let x=(Math.imul(n,2654435761)^0x5bd1e995)>>>0||1;return()=>{x^=x<<13;x>>>=0;x^=x>>>17;x^=x<<5;x>>>=0;return x/4294967296;};}
+function fallbackWord(n,avoid){const r=seeded(n);for(let i=0;i<100;i++){const w=ANSWERS[Math.floor(r()*ANSWERS.length)];if(w!==answerFor(n)&&w!==avoid)return w;}return answerFor(n+1)===avoid?'about':answerFor(n+1);}
+function prevEffective(n){if(n-1<2)return null;return rot&&rot.prev_word?rot.prev_word:fallbackWord(n-1,null);}
+function effectiveStart(){if(!rot||rot.status!=='ok'||puzzleNo<2)return null;
+  if(rot.start_status==='chosen')return rot.start_word;
+  if(rot.start_status==='skipped')return fallbackWord(puzzleNo,prevEffective(puzzleNo));return null;}
+const startPending=()=>puzzleNo>=2&&!rotTried&&state.guesses.length===0;
+function applyStart(){
+  const w=effectiveStart();
+  if(w&&state.status==='playing'&&state.guesses.length===0&&!current){
+    state.guesses.push(w);state.startWord=w;state.startBy=rot.start_by;state.startSkipped=rot.start_status==='skipped';save('state',state);
+    const res=score(w,answer);rows[0].tiles.forEach((t,i)=>{t.textContent=w[i];setTimeout(()=>{t.classList.add('flip-in');
+      setTimeout(()=>{t.classList.remove('flip-in');t.dataset.state=res[i];t.classList.add('flip-out');setTimeout(()=>t.classList.remove('flip-out'),250);},250);},i*200);});
+    setTimeout(()=>colorKeys(w,res),1300);}
+  renderStartLabel();}
+function renderStartLabel(){const el=$('#start-label');
+  if(state.startWord&&state.startBy){el.innerHTML=state.startSkipped?`@${esc(state.startBy)} skipped their turn, so today’s starting word is random 🎲`:`Starting word chosen by <b>@${esc(state.startBy)}</b>`;el.hidden=false;}
+  else el.hidden=true;}
+async function loadRot(){
+  try{rot=await rpc('get_rotation_state',{p_puzzle:puzzleNo,p_device:deviceId});}catch(e){rot=null;}
+  rotTried=true;applyStart();renderTurnNotes();}
+function renderTurnNotes(){if(!$('#modal-stats').hidden)renderRot();}
+function renderRot(){const box=$('#rot-box');
+  if(!rot||rot.status!=='ok'||!rot.next_by){box.hidden=true;return;}
+  box.hidden=false;
+  if(rot.can_nominate){
+    box.innerHTML=`<div class="rot-h">🎉 It’s your turn to pick tomorrow’s starting word!</div><div class="rot-s">Everyone starts tomorrow with your word as guess 1. Choose wisely… or wickedly. Pick before midnight or your turn is skipped.</div>
+      <form id="rot-form" autocomplete="off"><input id="rot-input" maxlength="5" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="5-letter word"><button class="btn-small" id="rot-save" type="submit">Lock it in</button></form><div class="user-err" id="rot-err"></div>`;
+    $('#rot-form').onsubmit=nominate;}
+  else if(rot.my_turn&&!rot.next_chosen){if(state.status==='playing'){box.hidden=true;return;}box.innerHTML='<div class="rot-s">Saving your result…</div>';}
+  else if(rot.my_turn)box.innerHTML='<div class="rot-s">✓ You’ve locked in tomorrow’s starting word. No peeking!</div>';
+  else box.innerHTML=`<div class="rot-s">Tomorrow’s starting word: <b>@${esc(rot.next_by)}</b>’s pick ${rot.next_chosen?'✓':'(not chosen yet)'}</div>`;}
+async function nominate(e){e.preventDefault();const w=$('#rot-input').value.trim().toLowerCase(),err=t=>{$('#rot-err').textContent=t;};
+  if(!/^[a-z]{5}$/.test(w))return err('It needs to be exactly 5 letters');
+  if(!VALID.has(w))return err('Not in word list');
+  if(w===answerFor(puzzleNo+1))return err('Sneaky! That word can’t be used. Try another');
+  if(w===(state.startWord||null))return err('That was today’s starting word. Pick a different one');
+  $('#rot-save').disabled=true;
+  try{const r=await rpc('submit_start_word',{p_device:deviceId,p_puzzle:puzzleNo+1,p_word:w});
+    const m={ok:null,already_set:'Already chosen',not_your_turn:'It’s not your turn',not_finished:'Finish today’s puzzle first',too_late:'Too late, the day has ended',same_as_yesterday:'That was today’s starting word. Pick a different one',invalid:'Not a valid word'};
+    if(r==='ok'){toast('Locked in! Tomorrow starts with '+w.toUpperCase(),2500);}else err(m[r]||'Something went wrong');
+  }catch(x){err('No connection, try again');}
+  $('#rot-save')&&($('#rot-save').disabled=false);
+  if(rot)await loadRot();}
+
 // ---------- result submission ----------
 async function submitResult(){
   if(!state.pendingSubmit||!username||!load('userSynced',false))return;
   try{const res=await rpc('submit_result',{p_device:deviceId,p_puzzle:state.puzzle,p_won:state.status==='won',p_guesses:state.status==='won'?state.guesses.length:6,p_hard:!!state.hard,p_words:state.guesses.slice(0,6)});
-    if(res==='ok'||res==='duplicate'||res==='invalid'){state.pendingSubmit=false;save('state',state);}
+    if(res==='ok'||res==='duplicate'||res==='invalid'){state.pendingSubmit=false;save('state',state);loadRot();}
     else if(res==='no_player'){save('userSynced',false);syncUser();}
   }catch(e){/* offline: retry on next load */}
 }
@@ -326,4 +376,5 @@ $('#btn-start').onclick=()=>{if(!username)openUser(false);
   else if(load('nameTaken',false)){openUser(true);$('#user-err').textContent='That username is taken – please choose another';$('#user-input').classList.add('bad');afterUserSaved=()=>openCalendar();}
   else openCalendar();};
 if(username)syncUser();
+renderStartLabel();loadRot();
 })();

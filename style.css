@@ -177,3 +177,15 @@ body:not(.dark) .cday.lost{background:#787c7e}
 .pb-row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
 .pb-row .tile{aspect-ratio:1;font-size:26px}
 .pb-grid .board-empty{grid-column:1/-1}
+.start-label{text-align:center;font-size:13px;color:#a0a3a6;padding:8px 12px 0;flex:none}
+.start-label b{color:var(--text)}
+.turn-note{background:var(--present);color:#fff;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.4;margin:0 0 14px;text-align:center}
+.turn-note.quiet{background:transparent;color:#a0a3a6;border:1px solid var(--line);padding:8px 12px;font-size:13px}
+.turn-note.quiet b{color:var(--text)}
+.rot-box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0 4px;text-align:center}
+.rot-h{font-weight:700;font-size:15px;margin-bottom:4px}
+.rot-s{font-size:13px;color:#a0a3a6;line-height:1.4}
+.rot-s b{color:var(--text)}
+#rot-form{display:flex;gap:8px;margin-top:10px}
+#rot-input{flex:1;min-width:0;font:inherit;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;padding:10px;border-radius:6px;border:2px solid var(--tile-empty);background:transparent;color:var(--text);outline:none;text-align:center}
+#rot-input:focus{border-color:var(--tile-tbd)}
