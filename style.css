@@ -202,4 +202,4 @@ body:not(.dark) .cday.lost{background:#787c7e}
 .code-line{margin-top:8px;font-size:13px}
 .code-line b{letter-spacing:.12em;color:var(--text)}
 .key[data-key=enter]{transition:background-color .18s ease,color .18s ease}
-.key[data-key=enter].ready{background:#538d4e;color:#fff}
+.key[data-key=enter].ready,body.dark .key[data-key=enter].ready{background:#538d4e!important;color:#fff!important}
