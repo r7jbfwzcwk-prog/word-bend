@@ -195,9 +195,18 @@ document.querySelectorAll('.ex-row').forEach(r=>{const w=r.dataset.word,[pos,st]
 // ---------- username ----------
 let afterUserSaved=()=>{};
 let username=load('username',null);
+const AV_COLORS=['#538d4e','#b59f3b','#3a7ca5','#a0522d','#7b5ea7','#c0504d','#2a9d8f'];
+function avatarHTML(name,url,size=26){const s=`width:${size}px;height:${size}px`;
+  if(url)return `<img class="av" style="${s}" src="${String(url).replace(/"/g,'&quot;')}" alt="" loading="lazy">`;
+  let h=0;for(const ch of String(name||'?').toLowerCase())h=(h*31+ch.charCodeAt(0))>>>0;
+  return `<span class="av" style="${s};background:${AV_COLORS[h%AV_COLORS.length]};font-size:${Math.round(size*.46)}px">${String(name||'?').charAt(0).toUpperCase().replace(/[<>&"]/g,'')}</span>`;}
+let myAvatar=load('avatar',null);
 const USER_RE=/^[A-Za-z0-9_]{2,20}$/;
 function renderUser(){const u=username?'@'+username:'';
-  $('#hdr-user').textContent=u;$('#hdr-user').hidden=!username;$('#stats-user').textContent=u;$('#set-user').textContent=u;}
+  $('#hdr-user').textContent=u;$('#hdr-user').hidden=!username;$('#stats-user').textContent=u;$('#set-user').textContent=u;
+  $('#set-av').innerHTML=username?avatarHTML(username,myAvatar,44):'';
+  const me=$('#wl-me');if(username){me.innerHTML=avatarHTML(username,myAvatar,30)+'<span>@'+username.replace(/[<>&"]/g,'')+'</span>';me.hidden=false;}else me.hidden=true;
+  $('#ph-add').textContent=myAvatar?'Change photo':'Add photo';$('#ph-remove').hidden=!myAvatar;}
 function openUser(changing){closeModals();const m=$('#modal-user');m.hidden=false;$('#si-form').hidden=true;$('#user-form').hidden=false;$('#si-err').textContent='';
   $('#user-close').hidden=!changing;m.dataset.required=changing?'':'1';
   const i=$('#user-input');i.value=username||'';i.classList.remove('bad');$('#user-err').textContent='';
@@ -366,27 +375,83 @@ async function loadBoard(){
     list.innerHTML=rows.map(r=>{const mine=r.username.toLowerCase()===me;
       const val=tab==='today'?`${r.won?r.guesses:'X'}/6<small>${new Date(r.finished_at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</small>`
         :`${r.wins} wins<small>${r.win_pct}% · ${r.avg_guesses??'–'} avg · 🔥${r.current_streak}</small>`;
-      return `<div class="brow${mine?' me':''}"><div class="rk">${r.rank}</div><div class="nm">${tab==='today'?`<button class="pname" data-user="${esc(r.username)}">@${esc(r.username)}</button>`:'@'+esc(r.username)}${tab==='today'&&r.hard_mode?'<span class="hm">★ hard</span>':''}</div><div class="vl">${val}</div></div>`;}).join('');
+      return `<div class="brow${mine?' me':''}"><div class="rk">${r.rank}</div><div class="nm">${avatarHTML(r.username,r.avatar_url)}${tab==='today'?`<button class="pname" data-user="${esc(r.username)}">@${esc(r.username)}</button>`:'<span class="uname">@'+esc(r.username)+'</span>'}${tab==='today'&&r.hard_mode?'<span class="hm">★ hard</span>':''}</div><div class="vl">${val}</div></div>`;}).join('');
   }catch(e){if(tab===boardTab)list.innerHTML='<div class="board-empty">Leaderboard unavailable right now. Check your connection.</div>';}
 }
 $('#btn-board').onclick=()=>{openModal('board');loadBoard();};
 // ---------- view another player's board (today only, after you finish) ----------
 $('#board-list').addEventListener('click',e=>{const b=e.target.closest('.pname');if(b&&boardTab==='today')viewPlayer(b.dataset.user);});
-async function viewPlayer(name){
-  openModal('pboard');$('#pb-title').textContent='@'+name;$('#pb-result').textContent='';const grid=$('#pb-grid');
+let pbFrom='board',pbPuzzle=0;
+async function viewPlayer(name,p=puzzleNo,from='board'){pbFrom=from;pbPuzzle=p;
+  openModal('pboard');$('#pb-title').textContent='@'+name;$('#pb-result').textContent='';$('#pb-av').innerHTML='';const grid=$('#pb-grid');
+  $('#pb-back').innerHTML=from==='day'?'&#8249; Puzzle #'+p:'&#8249; Leaderboard';
   const msg=t=>{grid.innerHTML=`<div class="board-empty">${t}</div>`;};
-  if(state.status==='playing')return msg("Finish today's puzzle to see everyone's guesses");
+  if(p>=puzzleNo&&state.status==='playing')return msg("Finish today's puzzle to see everyone's guesses");
   msg('Loading…');
-  try{const r=await rpc('get_player_board',{p_viewer:deviceId,p_username:name,p_puzzle:puzzleNo});
+  try{const r=await rpc('get_player_board',{p_viewer:deviceId,p_username:name,p_puzzle:p});
     if(r.status==='locked')return msg("Finish today's puzzle to see everyone's guesses");
-    if(r.status!=='ok'||!r.words)return msg('Board not available.');
+    if(r.status==='ok')$('#pb-av').innerHTML=avatarHTML(r.username,r.avatar_url,56);
+    if(r.status!=='ok'||!r.words)return msg(r.status==='ok'?`${r.won?r.guesses:'X'}/6. This board wasn’t saved.`:'Board not available.');
+    const ans=answerFor(p);
     $('#pb-result').textContent=(r.won?r.guesses:'X')+'/6'+(r.hard_mode?' ★ hard':'');
-    let html='';for(let i=0;i<6;i++){const w=r.words[i];const res=w?score(w,answer):null;
+    let html='';for(let i=0;i<6;i++){const w=r.words[i];const res=w?score(w,ans):null;
       html+='<div class="pb-row">'+[0,1,2,3,4].map(j=>`<div class="tile" data-state="${w?res[j]:'empty'}">${w?w[j]:''}</div>`).join('')+'</div>';}
     grid.innerHTML=html;
   }catch(e){msg('Couldn’t load this board. Check your connection.');}
 }
-$('#pb-back').onclick=()=>{openModal('board');loadBoard();};
+$('#pb-back').onclick=()=>{if(pbFrom==='day')openDay(pbPuzzle);else{openModal('board');loadBoard();}};
+
+// ---------- past days (read-only) ----------
+const dayDate=n=>new Date(2026,10,13+n-1).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'}).replace(',','');
+async function openDay(n){openModal('day');
+  $('#day-h').textContent='Puzzle #'+n;$('#day-date').textContent=dayDate(n)+' · fewest guesses, then earliest finish';
+  const ans=answerFor(n);$('#day-ans').innerHTML=[...ans].map(ch=>`<div class="tile" data-state="correct">${ch}</div>`).join('');
+  const st=$('#day-start'),list=$('#day-list');st.textContent='';list.innerHTML='<div class="board-empty">Loading…</div>';
+  try{const [d,rows]=await Promise.all([rpc('get_day_start',{p_puzzle:n}),rpc('get_today_board',{p_puzzle:n,p_limit:100})]);
+    if(d.start_status==='chosen')st.innerHTML=`Starting word <b>${esc(d.start_word.toUpperCase())}</b> chosen by <b>@${esc(d.start_by)}</b>`;
+    else if(d.start_status==='skipped'){const prev=d.prev_word||(n-1>=2?fallbackWord(n-1,null):null);st.innerHTML=`Random starting word <b>${fallbackWord(n,prev).toUpperCase()}</b> (@${esc(d.start_by)} skipped)`;}
+    else st.textContent=n<2?'No starting word this day':'';
+    if(!rows.length){list.innerHTML='<div class="board-empty">Nobody played this day</div>';return;}
+    const me=(username||'').toLowerCase();
+    list.innerHTML=rows.map(r=>`<div class="brow${r.username.toLowerCase()===me?' me':''}"><div class="rk">${r.rank}</div><div class="nm">${avatarHTML(r.username,r.avatar_url)}<button class="pname" data-user="${esc(r.username)}">@${esc(r.username)}</button>${r.hard_mode?'<span class="hm">★</span>':''}</div><div class="vl">${r.won?r.guesses:'X'}/6</div></div>`).join('');
+  }catch(e){list.innerHTML='<div class="board-empty">Couldn’t load this day. Check your connection.</div>';}
+}
+$('#day-list').addEventListener('click',e=>{const b=e.target.closest('.pname');const n=Number(($('#day-h').textContent.match(/\d+/)||[0])[0]);if(b&&n)viewPlayer(b.dataset.user,n,'day');});
+
+// ---------- profile photo ----------
+const AVATAR_FN=SB_URL+'/functions/v1/avatar';
+function loadImg(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{res(i);};i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('img'));};i.src=u;});}
+async function squareJpeg(file){const img=await loadImg(file);const side=Math.min(img.naturalWidth,img.naturalHeight);
+  const cv=document.createElement('canvas');cv.width=cv.height=256;const cx=cv.getContext('2d');
+  cx.drawImage(img,(img.naturalWidth-side)/2,(img.naturalHeight-side)/2,side,side,0,0,256,256);URL.revokeObjectURL(img.src);
+  for(const q of [0.85,0.75,0.6,0.45]){const d=cv.toDataURL('image/jpeg',q);if(d.length*0.75<=200*1024)return d;}
+  throw new Error('too_big');}
+async function avatarCall(body){const r=await fetch(AVATAR_FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({device_id:deviceId},body))});return r.json();}
+$('#ph-input').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+  if(!username||!load('userSynced',false))return toast('Go online with your username first',1800);
+  $('#ph-desc').textContent='Uploading…';
+  try{const d=await squareJpeg(f);const r=await avatarCall({image:d});
+    if(r.status!=='ok')throw new Error(r.status);myAvatar=r.avatar_url;save('avatar',myAvatar);renderUser();toast('Photo updated',1400);}
+  catch(x){toast(x.message==='too_big'?'That photo is too big':'Couldn’t upload the photo',1800);}
+  $('#ph-desc').textContent='Shown next to your name';});
+$('#ph-remove').onclick=async()=>{try{const r=await avatarCall({remove:true});if(r.status==='ok'){myAvatar=null;save('avatar',null);renderUser();toast('Photo removed',1400);}}catch(x){toast('Couldn’t remove the photo',1600);}};
+async function syncAvatar(){if(!username||!load('userSynced',false))return;try{const u=await rpc('get_my_avatar',{p_device:deviceId});if((u||null)!==myAvatar){myAvatar=u||null;save('avatar',myAvatar);renderUser();}}catch(e){}}
+
+// ---------- yesterday's winner splash (once per day per device) ----------
+async function maybeSplash(){
+  const y=puzzleNo-1;if(y<1||load('splashDay',null)===puzzleNo)return;
+  let w=null;try{const rows=await Promise.race([rpc('get_today_board',{p_puzzle:y,p_limit:1}),new Promise((_,rj)=>setTimeout(()=>rj(),2500))]);w=rows&&rows[0];}catch(e){return;}
+  save('splashDay',puzzleNo);if(!w||!w.won)return;
+  $('#win-av').innerHTML=avatarHTML(w.username,w.avatar_url,120);$('#win-name').textContent='@'+w.username;
+  $('#win-for').textContent='for '+dayDate(y);$('#win-score').textContent=w.guesses+'/6';
+  const cf=$('#confetti');cf.innerHTML='';const cols=['#538d4e','#b59f3b','#c9b458','#6aaa64','#ffffff','#3a3a3c'];
+  for(let i=0;i<70;i++){const p=document.createElement('i');p.style.left=Math.random()*100+'%';p.style.background=cols[i%cols.length];
+    p.style.animationDuration=(2.2+Math.random()*1.8)+'s';p.style.animationDelay=(Math.random()*1.2)+'s';p.style.transform=`rotate(${Math.random()*360}deg)`;cf.appendChild(p);}
+  const s=$('#screen-win');s.classList.remove('leaving');s.hidden=false;
+  await new Promise(res=>{let done=false;const fin=()=>{if(done)return;done=true;s.onclick=null;res();};s.onclick=fin;setTimeout(fin,4000);});
+}
+async function goCalendar(){await maybeSplash();openCalendar();}
+
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{boardTab=t.dataset.tab;loadBoard();});
 
 // ---------- input ----------
@@ -427,7 +492,7 @@ function renderCal(){
       if(h){b.classList.add(h.won?'won':'lost');b.innerHTML+=`<span class="r">${h.won?'✓ '+h.guesses+'/6':'✗ X/6'}</span>`;}
       else{b.classList.add('open');b.innerHTML+='<span class="r">PLAY</span>';}
       b.onclick=openGame;}
-    else if(n>=1&&n<puzzleNo){b.classList.add('past');if(h){b.classList.add(h.won?'won':'lost');b.innerHTML+=`<span class="r">${h.won?'✓ '+h.guesses+'/6':'✗'}</span>`;}}
+    else if(n>=1&&n<puzzleNo){b.classList.add('past');b.disabled=false;b.setAttribute('aria-label','View puzzle #'+n);b.onclick=()=>openDay(n);if(h){b.classList.add(h.won?'won':'lost');b.innerHTML+=`<span class="r">${h.won?'✓ '+h.guesses+'/6':'✗'}</span>`;}}
     g.appendChild(b);}
 }
 $('#cal-prev').onclick=()=>{calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()-1,1);renderCal();};
@@ -437,11 +502,11 @@ function openCalendar(){renderCal();showScreen('screen-cal');}
 function openGame(){showScreen(null);
   if(!load('seenHelp',false)){save('seenHelp',true);setTimeout(()=>openModal('help'),360);}
   else if(state.status!=='playing')setTimeout(()=>openModal('stats'),500);}
-afterUserSaved=first=>{if(first)openCalendar();};
+afterUserSaved=first=>{if(first)goCalendar();};
 $('#btn-start').onclick=()=>{if(!username)openUser(false);
   else if(load('nameTaken',false)){openUser(true);$('#user-err').textContent='That username is taken – please choose another';$('#user-input').classList.add('bad');afterUserSaved=()=>openCalendar();}
-  else openCalendar();};
-if(username)syncUser();
+  else goCalendar();};
+if(username){syncUser();syncAvatar();}
 renderStartLabel();loadRot();
 // ---------- sign-in code on the welcome page (temporary, until Sun 15 Nov 2026 08:47 Brisbane) ----------
 const WL_CODE_UNTIL=Date.parse('2026-11-14T22:47:00Z');

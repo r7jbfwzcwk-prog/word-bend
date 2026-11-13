@@ -206,3 +206,40 @@ body:not(.dark) .cday.lost{background:#787c7e}
 .wl-code{display:block;margin:18px auto 0;background:none;border:0;color:#818384;font:inherit;font-size:12px;line-height:1.4;max-width:300px;cursor:pointer}
 .wl-code b{color:var(--text);letter-spacing:.12em}
 .wl-code[hidden]{display:none}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;object-fit:cover;flex:none;color:#fff;font-weight:700;vertical-align:middle;background:#3a3a3c}
+.brow .nm{display:flex;align-items:center;gap:8px}
+.brow .nm .pname,.brow .nm .uname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pb-av{display:flex;justify-content:center;margin-top:36px}
+.pb-av:empty{display:none}
+.pb-av+h2{margin-top:8px!important}
+.wl-me{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;font-size:14px;font-weight:700;color:var(--text)}
+.wl-me[hidden]{display:none}
+.ph-left{display:flex;align-items:center;gap:12px}
+.ph-btns{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+label.btn-small{display:inline-block;text-align:center}
+.day-modal h2{margin-bottom:2px}
+.day-label{text-align:center;font-size:12px;color:#818384;margin-top:6px}
+.day-ans{display:flex;justify-content:center;gap:5px;margin:6px 0 10px}
+.day-ans .tile{width:44px;height:44px;font-size:24px}
+.day-start{text-align:center;font-size:13px;color:#a0a3a6;margin-bottom:10px;min-height:16px}
+.day-start b{color:var(--text)}
+.cday.past{cursor:pointer}
+.cday.past:not(.won):not(.lost){color:#818384;background:rgba(127,127,127,.12)}
+.cday.past:active{transform:scale(.94)}
+.win-screen{z-index:1700;flex-direction:column;overflow:hidden;cursor:pointer;background:radial-gradient(circle at 50% 40%,#1f2a1d 0%,var(--bg) 70%)}
+body:not(.dark) .win-screen{background:radial-gradient(circle at 50% 40%,#e6f2e3 0%,#fff 70%)}
+.win-inner{position:relative;text-align:center;z-index:2;animation:winpop .7s cubic-bezier(.2,1.4,.4,1) both}
+.win-crown{font-size:54px;animation:crown 1.2s ease-in-out .4s infinite alternate}
+.win-av{display:flex;justify-content:center;margin:4px 0 14px}
+.win-av .av{box-shadow:0 0 0 4px #c9b458,0 0 30px rgba(201,180,88,.6)}
+.win-word{font-family:'Karnak',Georgia,serif;font-weight:700;font-size:40px;letter-spacing:.18em;color:#c9b458;animation:fadeup .5s ease-out .3s both}
+.win-name{font-size:24px;font-weight:700;margin-top:6px;animation:fadeup .5s ease-out .5s both}
+.win-for{font-size:15px;color:#a0a3a6;margin-top:4px;animation:fadeup .5s ease-out .65s both}
+.win-score{display:inline-block;margin-top:14px;background:#538d4e;color:#fff;font-weight:700;font-size:20px;padding:6px 16px;border-radius:999px;animation:fadeup .5s ease-out .8s both}
+.win-skip{font-size:12px;color:#818384;margin-top:26px;animation:fadeup .5s ease-out 1.2s both}
+@keyframes winpop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+@keyframes crown{from{transform:translateY(0) rotate(-6deg)}to{transform:translateY(-6px) rotate(6deg)}}
+.confetti{position:absolute;inset:0;pointer-events:none;z-index:1}
+.confetti i{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;opacity:.95;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}

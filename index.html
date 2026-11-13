@@ -14,7 +14,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Word Bend">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body class="dark">
 <div id="app">
@@ -53,7 +53,22 @@
     <h2 class="wl-title fade-up" style="--d:1.9s">Welcome to Word Bend</h2>
     <p class="wl-tag fade-up" style="--d:2.2s">A delightfully curated selection of five-letter words for your utmost delectation.</p>
     <button class="btn-primary wl-btn fade-up" style="--d:2.5s" id="btn-start">Play Word Bend Daily Challenge</button>
+    <div class="wl-me fade-up" style="--d:2.7s" id="wl-me" hidden></div>
     <button class="wl-code fade-up" style="--d:2.8s" id="wl-code" type="button" hidden></button>
+  </div>
+</section>
+
+<!-- Yesterday's winner splash -->
+<section class="screen win-screen" id="screen-win" aria-label="Yesterday's winner" hidden>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <div class="win-inner">
+    <div class="win-crown">👑</div>
+    <div class="win-av" id="win-av"></div>
+    <div class="win-word">WINNER</div>
+    <div class="win-name" id="win-name"></div>
+    <div class="win-for" id="win-for"></div>
+    <div class="win-score" id="win-score"></div>
+    <div class="win-skip">Tap to skip</div>
   </div>
 </section>
 
@@ -105,11 +120,25 @@
   </div>
 </div>
 
+<!-- Past day modal -->
+<div class="overlay" id="modal-day" hidden>
+  <div class="modal board-modal day-modal" role="dialog" aria-labelledby="day-h">
+    <button class="close" aria-label="Close">&times;</button>
+    <h2 id="day-h"></h2>
+    <div class="board-sub" id="day-date"></div>
+    <div class="day-label">The answer was</div>
+    <div class="day-ans" id="day-ans"></div>
+    <div class="day-start" id="day-start"></div>
+    <div id="day-list" class="board-list"></div>
+  </div>
+</div>
+
 <!-- Player board modal -->
 <div class="overlay" id="modal-pboard" hidden>
   <div class="modal pb-modal" role="dialog" aria-labelledby="pb-title">
     <button class="close" aria-label="Close">&times;</button>
     <button class="pb-back" id="pb-back" aria-label="Back to leaderboard">&#8249; Leaderboard</button>
+    <div class="pb-av" id="pb-av"></div>
     <h2 id="pb-title"></h2>
     <div class="pb-result" id="pb-result"></div>
     <div class="pb-grid" id="pb-grid"></div>
@@ -196,6 +225,11 @@
       <div><div class="s-title">Username</div><div class="s-desc" id="set-user"></div></div>
     </div>
     <div class="setting">
+      <div class="ph-left"><span id="set-av"></span><div><div class="s-title">Photo</div><div class="s-desc" id="ph-desc">Shown next to your name</div></div></div>
+      <div class="ph-btns"><label class="btn-small" for="ph-input" id="ph-add">Add photo</label><button class="btn-small" id="ph-remove" type="button" hidden>Remove photo</button></div>
+      <input type="file" id="ph-input" accept="image/*" class="vh">
+    </div>
+    <div class="setting">
       <div><div class="s-title">Sign-in code</div><div class="s-desc" id="set-code">Use it once to sign in on the Home Screen app or another phone.</div></div>
       <div class="code-pill" id="set-code-val">······</div>
     </div>
@@ -207,7 +241,7 @@
   </div>
 </div>
 
-<script src="words.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="words.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
