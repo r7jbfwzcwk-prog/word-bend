@@ -203,3 +203,6 @@ body:not(.dark) .cday.lost{background:#787c7e}
 .code-line b{letter-spacing:.12em;color:var(--text)}
 .key[data-key=enter]{transition:background-color .18s ease,color .18s ease}
 .key[data-key=enter].ready,body.dark .key[data-key=enter].ready{background:#538d4e!important;color:#fff!important}
+.wl-code{display:block;margin:18px auto 0;background:none;border:0;color:#818384;font:inherit;font-size:12px;line-height:1.4;max-width:300px;cursor:pointer}
+.wl-code b{color:var(--text);letter-spacing:.12em}
+.wl-code[hidden]{display:none}

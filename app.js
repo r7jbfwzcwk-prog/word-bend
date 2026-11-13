@@ -247,6 +247,7 @@ $('#user-form').addEventListener('submit',async e=>{e.preventDefault();
   try{const r=await rpc('claim_username',{p_device:deviceId,p_name:v});
     if(r==='taken'){btn.disabled=false;btn.textContent=label;return bad('That username is taken');}
     if(r==='invalid'){btn.disabled=false;btn.textContent=label;return bad('Use only letters, numbers or _');}
+    if(r==='locked'){btn.disabled=false;btn.textContent=label;return bad('Usernames can’t be changed once set');}
     synced=r==='ok';
   }catch(err){/* offline: keep it locally, sync later */}
   btn.disabled=false;btn.textContent=label;
@@ -256,7 +257,6 @@ $('#user-form').addEventListener('submit',async e=>{e.preventDefault();
   if(first)afterUserSaved(true);
   else{afterUserSaved(false);afterUserSaved=f=>{if(f)openCalendar();};toast(synced?'Username saved':'Saved on this phone (offline)',1400);}});
 $('#user-input').addEventListener('input',()=>{$('#user-input').classList.remove('bad');$('#user-err').textContent='';});
-$('#btn-change-user').onclick=()=>openUser(true);
 
 // ---------- starting word rotation ----------
 let rot=null,rotTried=false;
@@ -443,4 +443,12 @@ $('#btn-start').onclick=()=>{if(!username)openUser(false);
   else openCalendar();};
 if(username)syncUser();
 renderStartLabel();loadRot();
+// ---------- sign-in code on the welcome page (temporary, until Sun 15 Nov 2026 08:47 Brisbane) ----------
+const WL_CODE_UNTIL=Date.parse('2026-11-14T22:47:00Z');
+async function renderWelcomeCode(){const el=$('#wl-code');
+  if(!username||isStandalone||Date.now()>=WL_CODE_UNTIL){el.hidden=true;return;}
+  const c=await fetchCode();if(!c||Date.now()>=WL_CODE_UNTIL){el.hidden=true;return;}
+  el.innerHTML=`Moving to your Home Screen? Your sign-in code: <b>${esc(c.code)}</b> (valid 24 hrs) · tap to copy`;el.hidden=false;
+  el.onclick=async()=>{toast((await copy(c.code))?'Code copied':'Your code: '+c.code,1600);};}
+renderWelcomeCode();setTimeout(()=>{if(Date.now()>=WL_CODE_UNTIL)$('#wl-code').hidden=true;},Math.max(0,Math.min(WL_CODE_UNTIL-Date.now(),2147483000)));
 })();
