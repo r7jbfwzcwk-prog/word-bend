@@ -168,3 +168,12 @@ body:not(.dark) .cday.lost{background:#787c7e}
 .cday.today.open .r{font-size:10px}
 @keyframes pulse{50%{transform:scale(1.06)}}
 .cal-note{text-align:center;font-size:13px;color:#818384;margin-top:20px}
+.pname{background:none;border:0;padding:0;font:inherit;font-weight:700;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(129,131,132,.6);text-underline-offset:3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-modal{padding:16px 20px 24px}
+.pb-back{position:absolute;left:12px;top:18px;background:none;border:0;color:#818384;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.pb-modal h2{margin-top:40px;text-transform:none;font-size:18px}
+.pb-result{text-align:center;font-weight:700;font-size:15px;color:#818384;margin:-4px 0 14px;min-height:18px}
+.pb-grid{display:grid;gap:5px;width:min(280px,100%);margin:0 auto}
+.pb-row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.pb-row .tile{aspect-ratio:1;font-size:26px}
+.pb-grid .board-empty{grid-column:1/-1}

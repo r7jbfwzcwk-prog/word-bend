@@ -222,7 +222,7 @@ $('#btn-change-user').onclick=()=>openUser(true);
 // ---------- result submission ----------
 async function submitResult(){
   if(!state.pendingSubmit||!username||!load('userSynced',false))return;
-  try{const res=await rpc('submit_result',{p_device:deviceId,p_puzzle:state.puzzle,p_won:state.status==='won',p_guesses:state.status==='won'?state.guesses.length:6,p_hard:!!state.hard});
+  try{const res=await rpc('submit_result',{p_device:deviceId,p_puzzle:state.puzzle,p_won:state.status==='won',p_guesses:state.status==='won'?state.guesses.length:6,p_hard:!!state.hard,p_words:state.guesses.slice(0,6)});
     if(res==='ok'||res==='duplicate'||res==='invalid'){state.pendingSubmit=false;save('state',state);}
     else if(res==='no_player'){save('userSynced',false);syncUser();}
   }catch(e){/* offline: retry on next load */}
@@ -245,15 +245,32 @@ async function loadBoard(){
   const tab=boardTab;
   try{const rows=tab==='today'?await rpc('get_today_board',{p_puzzle:puzzleNo,p_limit:50}):await rpc('get_alltime_board',{p_limit:50});
     if(tab!==boardTab)return;
-    if(!rows.length){list.innerHTML='<div class="board-empty">'+(tab==='today'?'No winners yet today. Be the first!':'No results yet.')+'</div>';return;}
+    if(!rows.length){list.innerHTML='<div class="board-empty">'+(tab==='today'?'No results yet today. Be the first!':'No results yet.')+'</div>';return;}
     const me=(username||'').toLowerCase();
     list.innerHTML=rows.map(r=>{const mine=r.username.toLowerCase()===me;
-      const val=tab==='today'?`${r.guesses}/6<small>${new Date(r.finished_at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</small>`
+      const val=tab==='today'?`${r.won?r.guesses:'X'}/6<small>${new Date(r.finished_at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</small>`
         :`${r.wins} wins<small>${r.win_pct}% · ${r.avg_guesses??'–'} avg · 🔥${r.current_streak}</small>`;
-      return `<div class="brow${mine?' me':''}"><div class="rk">${r.rank}</div><div class="nm">@${esc(r.username)}${tab==='today'&&r.hard_mode?'<span class="hm">★ hard</span>':''}</div><div class="vl">${val}</div></div>`;}).join('');
+      return `<div class="brow${mine?' me':''}"><div class="rk">${r.rank}</div><div class="nm">${tab==='today'?`<button class="pname" data-user="${esc(r.username)}">@${esc(r.username)}</button>`:'@'+esc(r.username)}${tab==='today'&&r.hard_mode?'<span class="hm">★ hard</span>':''}</div><div class="vl">${val}</div></div>`;}).join('');
   }catch(e){if(tab===boardTab)list.innerHTML='<div class="board-empty">Leaderboard unavailable right now. Check your connection.</div>';}
 }
 $('#btn-board').onclick=()=>{openModal('board');loadBoard();};
+// ---------- view another player's board (today only, after you finish) ----------
+$('#board-list').addEventListener('click',e=>{const b=e.target.closest('.pname');if(b&&boardTab==='today')viewPlayer(b.dataset.user);});
+async function viewPlayer(name){
+  openModal('pboard');$('#pb-title').textContent='@'+name;$('#pb-result').textContent='';const grid=$('#pb-grid');
+  const msg=t=>{grid.innerHTML=`<div class="board-empty">${t}</div>`;};
+  if(state.status==='playing')return msg("Finish today's puzzle to see everyone's guesses");
+  msg('Loading…');
+  try{const r=await rpc('get_player_board',{p_viewer:deviceId,p_username:name,p_puzzle:puzzleNo});
+    if(r.status==='locked')return msg("Finish today's puzzle to see everyone's guesses");
+    if(r.status!=='ok'||!r.words)return msg('Board not available.');
+    $('#pb-result').textContent=(r.won?r.guesses:'X')+'/6'+(r.hard_mode?' ★ hard':'');
+    let html='';for(let i=0;i<6;i++){const w=r.words[i];const res=w?score(w,answer):null;
+      html+='<div class="pb-row">'+[0,1,2,3,4].map(j=>`<div class="tile" data-state="${w?res[j]:'empty'}">${w?w[j]:''}</div>`).join('')+'</div>';}
+    grid.innerHTML=html;
+  }catch(e){msg('Couldn’t load this board. Check your connection.');}
+}
+$('#pb-back').onclick=()=>{openModal('board');loadBoard();};
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{boardTab=t.dataset.tab;loadBoard();});
 
 // ---------- input ----------
