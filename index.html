@@ -79,6 +79,14 @@
       <div class="user-hint">2–20 characters: letters, numbers or _</div>
       <button type="submit" id="user-save" class="btn-primary">Play</button>
     </form>
+    <button type="button" class="btn-link" id="si-toggle">Already playing? Sign in with your code</button>
+    <form id="si-form" autocomplete="off" novalidate hidden>
+      <p class="sub-sm">Moving to the Home Screen app or a new phone? Enter your username and the 6-character code from the game you already play in.</p>
+      <input id="si-user" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Username" aria-label="Username">
+      <input id="si-code" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="6" placeholder="Code e.g. K7PQ2M" aria-label="Sign-in code">
+      <div id="si-err" class="user-err" aria-live="polite"></div>
+      <button type="submit" id="si-save" class="btn-primary">Sign in</button>
+    </form>
   </div>
 </div>
 
@@ -186,6 +194,10 @@
     <div class="setting">
       <div><div class="s-title">Username</div><div class="s-desc" id="set-user"></div></div>
       <button class="btn-small" id="btn-change-user">Change</button>
+    </div>
+    <div class="setting">
+      <div><div class="s-title">Sign-in code</div><div class="s-desc" id="set-code">Use it once to sign in on the Home Screen app or another phone.</div></div>
+      <div class="code-pill" id="set-code-val">······</div>
     </div>
     <div class="setting">
       <div><div class="s-title">Feedback</div></div>

@@ -85,7 +85,8 @@ function colorKeys(guess,res){for(let i=0;i<5;i++){const k=keyEls[guess[i]];if(!
 // ---------- game ----------
 let current='',busy=false;
 const rowIdx=()=>state.guesses.length;
-function renderCurrent(){const r=rows[rowIdx()];if(!r)return;
+function updateEnter(){const k=kb.querySelector('.key[data-key=enter]');if(k)k.classList.toggle('ready',state.status==='playing'&&current.length===5&&VALID.has(current));}
+function renderCurrent(){updateEnter();const r=rows[rowIdx()];if(!r)return;
   r.tiles.forEach((t,i)=>{const ch=current[i]||'';if(t.textContent!==ch){t.textContent=ch;t.dataset.state=ch?'tbd':'empty';}});}
 
 function restore(){state.guesses.forEach((g,ri)=>{const res=score(g,answer);rows[ri].tiles.forEach((t,i)=>{t.textContent=g[i];t.dataset.state=res[i];});colorKeys(g,res);});}
@@ -102,10 +103,10 @@ function press(k){
 
 function submit(){
   if(current.length<5){shake();return toast('Not enough letters');}
-  if(!VALID.has(current)){shake();return toast('Not in word list');}
+  if(!VALID.has(current)){shake();return toast('Not a real word');}
   if(state.hard){const e=hardModeError(current);if(e){shake();return toast(e);}}
   const guess=current,res=score(guess,answer),r=rows[rowIdx()];
-  busy=true;current='';
+  busy=true;current='';updateEnter();
   state.guesses.push(guess);
   const won=guess===answer,lost=!won&&state.guesses.length===6;
   if(won||lost){state.status=won?'won':'lost';updateStats(won);state.pendingSubmit=true;}
@@ -140,7 +141,7 @@ function closeModals(){document.querySelectorAll('.overlay').forEach(o=>o.hidden
 document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>{if(o.dataset.required)return;if(e.target===o||e.target.closest('.close'))closeModals();});});
 $('#btn-help').onclick=()=>openModal('help');
 $('#btn-stats').onclick=()=>openModal('stats');
-$('#btn-settings').onclick=()=>openModal('settings');
+$('#btn-settings').onclick=()=>{openModal('settings');renderCode();};
 
 function renderStats(){
   $('#st-played').textContent=stats.played;
@@ -197,10 +198,46 @@ let username=load('username',null);
 const USER_RE=/^[A-Za-z0-9_]{2,20}$/;
 function renderUser(){const u=username?'@'+username:'';
   $('#hdr-user').textContent=u;$('#hdr-user').hidden=!username;$('#stats-user').textContent=u;$('#set-user').textContent=u;}
-function openUser(changing){closeModals();const m=$('#modal-user');m.hidden=false;
+function openUser(changing){closeModals();const m=$('#modal-user');m.hidden=false;$('#si-form').hidden=true;$('#user-form').hidden=false;$('#si-err').textContent='';
   $('#user-close').hidden=!changing;m.dataset.required=changing?'':'1';
   const i=$('#user-input');i.value=username||'';i.classList.remove('bad');$('#user-err').textContent='';
   $('#user-save').textContent=changing?'Save':'Play';setTimeout(()=>i.focus(),50);}
+// ---------- sign in with code (move to Home Screen app / new phone) ----------
+let myCode=null;
+async function fetchCode(){if(!username||!load('userSynced',false))return null;
+  if(myCode&&new Date(myCode.expires_at)>new Date(Date.now()+60000))return myCode;
+  try{const r=await rpc('get_my_code',{p_device:deviceId});if(r&&r.status==='ok')myCode=r;}catch(e){}return myCode;}
+const fmtExp=c=>new Date(c.expires_at).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'});
+async function renderCode(){const v=$('#set-code-val'),d=$('#set-code');const c=await fetchCode();
+  if(!c){v.textContent='—';d.textContent='Available once you’re online with a username.';return;}
+  v.textContent=c.code;d.textContent=`Use it once to sign in on the Home Screen app or another phone. Valid for 24 hours (until ${fmtExp(c)}).`;}
+$('#si-toggle').onclick=()=>{const f=$('#si-form');f.hidden=!f.hidden;$('#user-form').hidden=!f.hidden;if(!f.hidden)setTimeout(()=>$('#si-user').focus(),50);};
+function rebuildFromHistory(rows){
+  const st={played:0,wins:0,cur:0,max:0,dist:[0,0,0,0,0,0],lastWon:null,lastPlayed:null},hist={};let run=0,prev=null;
+  rows.forEach(r=>{st.played++;st.lastPlayed=r.puzzle;hist[r.puzzle]={won:r.won,guesses:r.guesses};
+    if(r.won){st.wins++;st.dist[r.guesses-1]++;run=(prev!==null&&r.puzzle===prev+1&&run>0)?run+1:1;st.lastWon=r.puzzle;st.max=Math.max(st.max,run);}else run=0;
+    prev=r.puzzle;});
+  st.cur=(st.lastWon!==null&&st.lastWon===st.lastPlayed&&st.lastWon>=puzzleNo-1)?run:0;
+  return {st,hist};}
+$('#si-form').addEventListener('submit',async e=>{e.preventDefault();
+  const u=$('#si-user').value.trim(),c=$('#si-code').value.trim().toUpperCase(),err=t=>{$('#si-err').textContent=t;};
+  if(!USER_RE.test(u))return err('Enter your username');if(!/^[A-Z0-9]{6}$/.test(c))return err('The code is 6 letters and numbers');
+  const btn=$('#si-save');btn.disabled=true;btn.textContent='Signing in…';
+  try{const r=await rpc('sign_in',{p_username:u,p_code:c});
+    if(r.status!=='ok'){btn.disabled=false;btn.textContent='Sign in';
+      return err(r.status==='locked'?'Too many tries. Please wait an hour and try again.':r.status==='expired'?'That code has expired. Get a fresh one from Settings in your other game.':'Username or code is wrong');}
+    const rows=await rpc('get_my_history',{p_device:r.device_id});
+    const {st,hist}=rebuildFromHistory(rows);const mine=rows.find(x=>x.puzzle===puzzleNo);
+    let ns;
+    if(mine)ns={puzzle:puzzleNo,guesses:(mine.words||[]).slice(0,6),status:mine.won?'won':'lost',hard:mine.hard_mode,pendingSubmit:false};
+    else{ns=Object.assign({},state);if(ns.status!=='playing'){ns.pendingSubmit=true;hist[puzzleNo]={won:ns.status==='won',guesses:ns.guesses.length};}}
+    save('device',r.device_id);save('username',r.username);save('userSynced',true);save('nameTaken',false);save('pushSaved',null);
+    save('stats',st);save('history',hist);save('state',ns);save('seenHelp',true);
+    sessionStorage.setItem('wb-signed-in',r.username);location.reload();
+  }catch(x){btn.disabled=false;btn.textContent='Sign in';err('No connection, try again');}
+});
+if(sessionStorage.getItem('wb-signed-in')){const n=sessionStorage.getItem('wb-signed-in');sessionStorage.removeItem('wb-signed-in');setTimeout(()=>toast('Welcome back, @'+n+'!',2200),300);}
+
 $('#user-form').addEventListener('submit',async e=>{e.preventDefault();
   const v=$('#user-input').value.trim();
   const bad=m=>{$('#user-input').classList.add('bad');$('#user-err').textContent=m;};
@@ -258,12 +295,12 @@ function renderRot(){const box=$('#rot-box');
   else box.innerHTML=`<div class="rot-s">Tomorrow’s starting word: <b>@${esc(rot.next_by)}</b>’s pick ${rot.next_chosen?'✓':'(not chosen yet)'}</div>`;}
 async function nominate(e){e.preventDefault();const w=$('#rot-input').value.trim().toLowerCase(),err=t=>{$('#rot-err').textContent=t;};
   if(!/^[a-z]{5}$/.test(w))return err('It needs to be exactly 5 letters');
-  if(!VALID.has(w))return err('Not in word list');
+  if(!VALID.has(w))return err('Not a real word');
   if(w===answerFor(puzzleNo+1))return err('Sneaky! That word can’t be used. Try another');
   if(w===(state.startWord||null))return err('That was today’s starting word. Pick a different one');
   $('#rot-save').disabled=true;
   try{const r=await rpc('submit_start_word',{p_device:deviceId,p_puzzle:puzzleNo+1,p_word:w});
-    const m={ok:null,already_set:'Already chosen',not_your_turn:'It’s not your turn',not_finished:'Finish today’s puzzle first',too_late:'Too late, the day has ended',same_as_yesterday:'That was today’s starting word. Pick a different one',invalid:'Not a valid word'};
+    const m={ok:null,already_set:'Already chosen',not_your_turn:'It’s not your turn',not_finished:'Finish today’s puzzle first',too_late:'Too late, the day has ended',same_as_yesterday:'That was today’s starting word. Pick a different one',invalid:'Not a real word'};
     if(r==='ok'){toast('Locked in! Tomorrow starts with '+w.toUpperCase(),2500);}else err(m[r]||'Something went wrong');
   }catch(x){err('No connection, try again');}
   $('#rot-save')&&($('#rot-save').disabled=false);
@@ -287,7 +324,8 @@ async function enablePush(){if(!pushSupported)return 'unsupported';
   try{await saveSub(await getSub());}catch(e){}renderRem();return 'granted';}
 function renderRem(){const box=$('#rem-box');if(!box)return;
   if(state.status==='playing'){box.hidden=true;return;}
-  if(isIOS&&!isStandalone){box.innerHTML='🔔 Want daily reminders? Tap <b>Share</b> then <b>Add to Home Screen</b>, open Word Bend from your Home Screen and turn them on there.';box.hidden=false;return;}
+  if(isIOS&&!isStandalone){box.innerHTML='🔔 Want daily reminders? Tap <b>Share</b> then <b>Add to Home Screen</b>, open Word Bend from your Home Screen and turn them on there.<div class="code-line" id="hint-code" hidden></div>';box.hidden=false;
+    fetchCode().then(c=>{const el=$('#hint-code');if(c&&el){el.innerHTML=`Your code: <b>${c.code}</b>. You’ll need it once in the Home Screen app, with your username @${esc(username)}. Valid for 24 hours.`;el.hidden=false;}});return;}
   if(!pushSupported||Notification.permission==='denied'){box.hidden=true;return;}
   if(Notification.permission==='granted'&&load('pushSaved',null)){box.innerHTML='🔔 Reminders are on';box.hidden=false;return;}
   box.innerHTML='<button class="btn-small" id="rem-btn">🔔 Turn on reminders</button>';box.hidden=false;
